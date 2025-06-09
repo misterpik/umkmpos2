@@ -1,4 +1,16 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY,
+);
 
 interface Product {
   id: string;
@@ -16,138 +28,141 @@ interface Product {
 
 interface ProductContextType {
   products: Product[];
-  addProduct: (product: Omit<Product, "id" | "lastUpdated">) => void;
-  updateProduct: (id: string, updates: Partial<Product>) => void;
-  deleteProduct: (id: string) => void;
+  loading: boolean;
+  addProduct: (product: Omit<Product, "id" | "lastUpdated">) => Promise<void>;
+  updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
   getProduct: (id: string) => Product | undefined;
   getLowStockProducts: () => Product[];
+  refreshProducts: () => Promise<void>;
 }
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
 
-const initialProducts: Product[] = [
-  {
-    id: "1",
-    name: "Indomie Goreng",
-    price: 3500,
-    category: "Makanan",
-    stock: 50,
-    minStock: 10,
-    barcode: "8992753102504",
-    description: "Mie instan rasa ayam goreng",
-    supplier: "PT Indofood",
-    lastUpdated: new Date(),
-  },
-  {
-    id: "2",
-    name: "Aqua 600ml",
-    price: 5000,
-    category: "Minuman",
-    stock: 30,
-    minStock: 15,
-    barcode: "8992952042309",
-    description: "Air mineral dalam kemasan",
-    supplier: "PT Aqua Golden Mississippi",
-    lastUpdated: new Date(),
-  },
-  {
-    id: "3",
-    name: "Teh Botol Sosro",
-    price: 6000,
-    category: "Minuman",
-    stock: 25,
-    minStock: 12,
-    barcode: "8992761002001",
-    description: "Teh dalam kemasan botol",
-    supplier: "PT Sinar Sosro",
-    lastUpdated: new Date(),
-  },
-  {
-    id: "4",
-    name: "Sabun Lifebuoy",
-    price: 4500,
-    category: "Perawatan",
-    stock: 20,
-    minStock: 8,
-    barcode: "8992772051001",
-    description: "Sabun mandi antibakteri",
-    supplier: "PT Unilever Indonesia",
-    lastUpdated: new Date(),
-  },
-  {
-    id: "5",
-    name: "Pepsodent",
-    price: 12000,
-    category: "Perawatan",
-    stock: 15,
-    minStock: 5,
-    barcode: "8992772076004",
-    description: "Pasta gigi untuk keluarga",
-    supplier: "PT Unilever Indonesia",
-    lastUpdated: new Date(),
-  },
-  {
-    id: "6",
-    name: "Chitato",
-    price: 10000,
-    category: "Makanan",
-    stock: 40,
-    minStock: 15,
-    barcode: "8992688218001",
-    description: "Keripik kentang rasa original",
-    supplier: "PT Indofood Fritolay Makmur",
-    lastUpdated: new Date(),
-  },
-  {
-    id: "7",
-    name: "Pocari Sweat",
-    price: 7500,
-    category: "Minuman",
-    stock: 35,
-    minStock: 10,
-    barcode: "8992696427001",
-    description: "Minuman isotonik",
-    supplier: "PT Pocari Sweat Indonesia",
-    lastUpdated: new Date(),
-  },
-  {
-    id: "8",
-    name: "Mie Sedaap",
-    price: 3000,
-    category: "Makanan",
-    stock: 45,
-    minStock: 12,
-    barcode: "8992952042101",
-    description: "Mie instan rasa ayam bawang",
-    supplier: "PT Karunia Alam Segar",
-    lastUpdated: new Date(),
-  },
-];
-
 export const ProductProvider = ({ children }: { children: ReactNode }) => {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const addProduct = (productData: Omit<Product, "id" | "lastUpdated">) => {
-    const newProduct: Product = {
-      ...productData,
-      id: Date.now().toString(),
-      lastUpdated: new Date(),
-    };
-    setProducts((prev) => [...prev, newProduct]);
+  const refreshProducts = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching products:", error);
+        return;
+      }
+
+      const formattedProducts: Product[] = data.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        category: item.category,
+        image: item.image,
+        barcode: item.barcode,
+        stock: item.stock,
+        minStock: item.min_stock,
+        description: item.description,
+        supplier: item.supplier,
+        lastUpdated: new Date(item.updated_at),
+      }));
+
+      setProducts(formattedProducts);
+    } catch (error) {
+      console.error("Error in refreshProducts:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateProduct = (id: string, updates: Partial<Product>) => {
-    setProducts((prev) =>
-      prev.map((product) =>
-        product.id === id
-          ? { ...product, ...updates, lastUpdated: new Date() }
-          : product,
-      ),
-    );
+  useEffect(() => {
+    refreshProducts();
+  }, []);
+
+  const addProduct = async (
+    productData: Omit<Product, "id" | "lastUpdated">,
+  ) => {
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .insert({
+          name: productData.name,
+          price: productData.price,
+          category: productData.category,
+          image: productData.image,
+          barcode: productData.barcode,
+          stock: productData.stock,
+          min_stock: productData.minStock,
+          description: productData.description,
+          supplier: productData.supplier,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error adding product:", error);
+        throw error;
+      }
+
+      await refreshProducts();
+    } catch (error) {
+      console.error("Error in addProduct:", error);
+      throw error;
+    }
   };
 
-  const deleteProduct = (id: string) => {
-    setProducts((prev) => prev.filter((product) => product.id !== id));
+  const updateProduct = async (id: string, updates: Partial<Product>) => {
+    try {
+      const updateData: any = {};
+      if (updates.name !== undefined) updateData.name = updates.name;
+      if (updates.price !== undefined) updateData.price = updates.price;
+      if (updates.category !== undefined)
+        updateData.category = updates.category;
+      if (updates.image !== undefined) updateData.image = updates.image;
+      if (updates.barcode !== undefined) updateData.barcode = updates.barcode;
+      if (updates.stock !== undefined) updateData.stock = updates.stock;
+      if (updates.minStock !== undefined)
+        updateData.min_stock = updates.minStock;
+      if (updates.description !== undefined)
+        updateData.description = updates.description;
+      if (updates.supplier !== undefined)
+        updateData.supplier = updates.supplier;
+      updateData.updated_at = new Date().toISOString();
+
+      const { error } = await supabase
+        .from("products")
+        .update(updateData)
+        .eq("id", id);
+
+      if (error) {
+        console.error("Error updating product:", error);
+        throw error;
+      }
+
+      await refreshProducts();
+    } catch (error) {
+      console.error("Error in updateProduct:", error);
+      throw error;
+    }
+  };
+
+  const deleteProduct = async (id: string) => {
+    try {
+      const { error } = await supabase.from("products").delete().eq("id", id);
+
+      if (error) {
+        console.error("Error deleting product:", error);
+        throw error;
+      }
+
+      await refreshProducts();
+    } catch (error) {
+      console.error("Error in deleteProduct:", error);
+      throw error;
+    }
   };
 
   const getProduct = (id: string) => {
@@ -164,11 +179,13 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
     <ProductContext.Provider
       value={{
         products,
+        loading,
         addProduct,
         updateProduct,
         deleteProduct,
         getProduct,
         getLowStockProducts,
+        refreshProducts,
       }}
     >
       {children}
