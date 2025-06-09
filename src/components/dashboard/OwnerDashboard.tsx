@@ -22,6 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import SalesAnalytics from "../analytics/SalesAnalytics";
 import { useNavigate } from "react-router-dom";
+import { useProducts } from "@/contexts/ProductContext";
 
 interface OwnerDashboardProps {
   userName?: string;
@@ -33,6 +34,7 @@ const OwnerDashboard = ({
   businessName = "Toko Sejahtera",
 }: OwnerDashboardProps) => {
   const navigate = useNavigate();
+  const { products, getLowStockProducts } = useProducts();
 
   // Mock data for dashboard
   const salesData = {
@@ -41,9 +43,10 @@ const OwnerDashboard = ({
     growth: 19.05,
   };
 
+  const lowStockProducts = getLowStockProducts();
   const inventoryData = {
-    total: 156,
-    lowStock: 12,
+    total: products.length,
+    lowStock: lowStockProducts.length,
   };
 
   const topProducts = [
@@ -94,7 +97,12 @@ const OwnerDashboard = ({
             <ShoppingCart className="mr-2 h-4 w-4" />
             POS Interface
           </Button>
-          <Button variant="ghost" className="justify-start" size="sm">
+          <Button
+            variant="ghost"
+            className="justify-start"
+            size="sm"
+            onClick={() => navigate("/inventory")}
+          >
             <Package className="mr-2 h-4 w-4" />
             Inventory
           </Button>
@@ -288,27 +296,57 @@ const OwnerDashboard = ({
                     <div>Status</div>
                   </div>
                   <div className="space-y-2">
-                    <div className="grid grid-cols-3 text-sm items-center">
-                      <div>Beras Premium 5kg</div>
-                      <div>3 unit</div>
-                      <Badge variant="destructive">Kritis</Badge>
-                    </div>
-                    <div className="grid grid-cols-3 text-sm items-center">
-                      <div>Minyak Goreng 1L</div>
-                      <div>5 unit</div>
-                      <Badge variant="destructive">Kritis</Badge>
-                    </div>
-                    <div className="grid grid-cols-3 text-sm items-center">
-                      <div>Gula Pasir 1kg</div>
-                      <div>8 unit</div>
-                      <Badge variant="outline">Menipis</Badge>
-                    </div>
-                    <div className="grid grid-cols-3 text-sm items-center">
-                      <div>Telur Ayam 1kg</div>
-                      <div>10 unit</div>
-                      <Badge variant="outline">Menipis</Badge>
-                    </div>
+                    {lowStockProducts.length === 0 ? (
+                      <div className="text-center text-muted-foreground py-4">
+                        Tidak ada produk dengan stok menipis
+                      </div>
+                    ) : (
+                      lowStockProducts.map((product) => {
+                        const getStockStatus = () => {
+                          if (product.stock <= (product.minStock || 0)) {
+                            return {
+                              status: "Kritis",
+                              variant: "destructive" as const,
+                            };
+                          } else if (
+                            product.stock <=
+                            (product.minStock || 0) * 1.5
+                          ) {
+                            return {
+                              status: "Menipis",
+                              variant: "outline" as const,
+                            };
+                          }
+                          return {
+                            status: "Normal",
+                            variant: "secondary" as const,
+                          };
+                        };
+                        const stockStatus = getStockStatus();
+                        return (
+                          <div
+                            key={product.id}
+                            className="grid grid-cols-3 text-sm items-center"
+                          >
+                            <div>{product.name}</div>
+                            <div>{product.stock} unit</div>
+                            <Badge variant={stockStatus.variant}>
+                              {stockStatus.status}
+                            </Badge>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-4"
+                    onClick={() => navigate("/inventory")}
+                  >
+                    <Package className="h-4 w-4 mr-2" />
+                    Kelola Inventaris
+                  </Button>
                 </div>
               </CardContent>
             </Card>

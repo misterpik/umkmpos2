@@ -3,6 +3,7 @@ import { useRoutes, Routes, Route } from "react-router-dom";
 import Home from "./components/home";
 import OwnerDashboard from "./components/dashboard/OwnerDashboard";
 import POSInterface from "./components/pos/POSInterface";
+import InventoryManagement from "./components/inventory/InventoryManagement";
 import routes from "tempo-routes";
 
 function App() {
@@ -13,6 +14,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/dashboard" element={<OwnerDashboard />} />
           <Route path="/pos" element={<POSInterface />} />
+          <Route path="/inventory" element={<InventoryManagement />} />
         </Routes>
         {import.meta.env.VITE_TEMPO === "true" && useRoutes(routes)}
       </>

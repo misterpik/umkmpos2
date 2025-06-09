@@ -36,89 +36,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-  image?: string;
-  barcode?: string;
-  stock: number;
-}
+import { useProducts, Product } from "@/contexts/ProductContext";
 
 interface CartItem extends Product {
   quantity: number;
 }
 
 const POSInterface = () => {
-  // Sample product data
-  const [products, setProducts] = useState<Product[]>([
-    {
-      id: "1",
-      name: "Indomie Goreng",
-      price: 3500,
-      category: "Makanan",
-      stock: 50,
-      barcode: "8992753102504",
-    },
-    {
-      id: "2",
-      name: "Aqua 600ml",
-      price: 5000,
-      category: "Minuman",
-      stock: 30,
-      barcode: "8992952042309",
-    },
-    {
-      id: "3",
-      name: "Teh Botol Sosro",
-      price: 6000,
-      category: "Minuman",
-      stock: 25,
-      barcode: "8992761002001",
-    },
-    {
-      id: "4",
-      name: "Sabun Lifebuoy",
-      price: 4500,
-      category: "Perawatan",
-      stock: 20,
-      barcode: "8992772051001",
-    },
-    {
-      id: "5",
-      name: "Pepsodent",
-      price: 12000,
-      category: "Perawatan",
-      stock: 15,
-      barcode: "8992772076004",
-    },
-    {
-      id: "6",
-      name: "Chitato",
-      price: 10000,
-      category: "Makanan",
-      stock: 40,
-      barcode: "8992688218001",
-    },
-    {
-      id: "7",
-      name: "Pocari Sweat",
-      price: 7500,
-      category: "Minuman",
-      stock: 35,
-      barcode: "8992696427001",
-    },
-    {
-      id: "8",
-      name: "Mie Sedaap",
-      price: 3000,
-      category: "Makanan",
-      stock: 45,
-      barcode: "8992952042101",
-    },
-  ]);
+  const { products, updateProduct } = useProducts();
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -141,9 +66,18 @@ const POSInterface = () => {
 
   // Add product to cart
   const addToCart = (product: Product) => {
+    if (product.stock <= 0) {
+      alert("Stok produk habis!");
+      return;
+    }
+
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === product.id);
       if (existingItem) {
+        if (existingItem.quantity >= product.stock) {
+          alert("Stok tidak mencukupi!");
+          return prevCart;
+        }
         return prevCart.map((item) =>
           item.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
@@ -189,6 +123,13 @@ const POSInterface = () => {
 
   // Process payment
   const processPayment = () => {
+    // Update product stock after successful payment
+    cart.forEach((item) => {
+      updateProduct(item.id, {
+        stock: item.stock - item.quantity,
+      });
+    });
+
     // In a real app, this would handle payment processing
     alert(`Pembayaran berhasil dengan metode: ${paymentMethod}`);
     setCart([]);
